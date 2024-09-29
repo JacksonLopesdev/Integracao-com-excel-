@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
-
+import requests
 class Produto:
     def __init__(self, data, cliente, codigo, loja, quantidade, nome, valor_dolar_unidade, porcentagem_lucro):
         self.data = data
@@ -41,7 +41,7 @@ class BancoDeDadosProdutos:
     def __init__(self):
         self.produtos = {}
         self.interface = None  # Referência à interface
-        self.taxa_conversao = 5.0  # padrão da taxa de conversão (1 dólar = 5 reais)
+        self.taxa_conversao = self.obter_cotacao_dolar()
         self.filename = self.get_nome_planilha()
         self.carregar_produtos()
         
@@ -111,15 +111,20 @@ class BancoDeDadosProdutos:
             messagebox.showerror("Erro", f"Ocorreu um erro ao salvar a planilha: {e}")
 
 
-    def atualizar_cotacao(self):
+    def obter_cotacao_dolar(self):
         try:
-            nova_cotacao = float(simpledialog.askstring("Atualizar Cotação", "Digite a nova cotação do Dólar (R$):"))
-            self.taxa_conversao = nova_cotacao
-            # Atualiza o texto do rótulo na interface
-            self.interface.label_cotacao.config(text=f"Cotação do Dólar (R$): {self.taxa_conversao:.2f}")
-            messagebox.showinfo("Sucesso", f"Cotação do Dólar atualizada para R$ {nova_cotacao:.2f}.")
-        except ValueError:
-            messagebox.showerror("Erro", "Digite um valor numérico válido para a cotação do Dólar.")
+            url = "https://v6.exchangerate-api.com/v6/96db0a5fa3c78b299a7f8a57/latest/USD"
+            response = requests.get(url)
+            data = response.json()
+            return data['conversion_rates']['BRL']
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao obter a cotação do dólar: {e}")
+            return 5.0  # Retorne uma taxa padrão em caso de falha
+
+    def atualizar_cotacao(self):
+        self.taxa_conversao = self.obter_cotacao_dolar()
+        self.interface.label_cotacao.config(text=f"Cotação do Dólar (R$): {self.taxa_conversao:.2f}")
+        messagebox.showinfo("Sucesso", f"Cotação do Dólar atualizada para R$ {self.taxa_conversao:.2f}.")
 
     def calcular_total_mes(self):
         filename = self.get_nome_planilha()
